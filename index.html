@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="WasteWise - Aplikasi Pengolahan dan Pemilahan Sampah">
+    <title>WasteWise - Kelola Sampah Anda</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Leaflet Geocoder -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Splash Screen -->
+    <div id="splash-screen" class="splash-screen">
+        <div class="splash-content">
+            <div class="splash-icon">🌱</div>
+            <h1 class="splash-title">WasteWise</h1>
+            <p class="splash-subtitle">Kelola Sampah, Raih Reward</p>
+            <div class="loading-bar">
+                <div class="loading-progress"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="app" class="app-container" style="display: none;">
+
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="header-title" onclick="navigateTo('beranda')" style="cursor: pointer;">
+                    <img src="logo.jpg" alt="WasteWise Logo" class="logo-image">
+                    <span id="header-text">WasteWise</span>
+                </div>
+
+                <!-- Navigasi Desktop (Hidden on Mobile) -->
+                <nav class="desktop-nav">
+                    <button class="nav-link" onclick="navigateTo('beranda')">Beranda</button>
+                    <button class="nav-link" onclick="navigateTo('jadwal')">Jadwal</button>
+                    <button class="nav-link" onclick="navigateTo('panduan')">Panduan</button>
+                    <button class="nav-link" onclick="navigateTo('reward')">Reward</button>
+                </nav>
+
+                <div class="header-actions">
+                    <!-- Fitur Notifikasi Terpisah -->
+                    <button class="notification-btn" onclick="navigateTo('notifikasi')" title="Notifikasi">
+                        <span>🔔</span>
+                        <span id="header-notif-badge" class="badge">0</span>
+                    </button>
+
+                    <!-- Hamburger Menu (Mobile Only) -->
+                    <button id="hamburger-btn" class="mobile-only-btn" title="Menu">
+                        <div class="humb-bar"></div>
+                        <div class="humb-bar"></div>
+                        <div class="humb-bar"></div>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Sidebar Navigation (Hanya untuk Mobile) -->
+        <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3 style="margin:0; font-size:1.25rem;">Menu</h3>
+                <button id="close-sidebar" class="icon-btn">✕</button>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="nav-item-side" onclick="navigateTo('beranda'); closeSidebar();">
+                    <span>🏠</span> Beranda
+                </button>
+                <button class="nav-item-side" onclick="navigateTo('jadwal'); closeSidebar();">
+                    <span>📅</span> Jadwal Penjemputan
+                </button>
+                <button class="nav-item-side" onclick="navigateTo('panduan'); closeSidebar();">
+                    <span>📚</span> Panduan Pemilahan
+                </button>
+                <button class="nav-item-side" onclick="navigateTo('reward'); closeSidebar();">
+                    <span>🎁</span> Reward System
+                </button>
+            </nav>
+            <div class="sidebar-footer">
+                <p>WasteWise v1.0</p>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+
+            <!-- HALAMAN BERANDA -->
+            <section id="page-beranda" class="page active">
+                <div class="hero-card">
+                    <div class="hero-background"></div>
+                    <div class="hero-content">
+                        <h2>Halo, Sahabat Bumi! 🌍</h2>
+                        <p class="hero-subtitle">Mari kelola sampah dengan bijak</p>
+                        <div class="points-display">
+                            <div class="points-icon">⭐</div>
+                            <div class="points-info">
+                                <span class="points-label">Total Poin Anda</span>
+                                <span class="points-value" id="total-points">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quick-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon">📅</div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="schedule-count">0</span>
+                            <span class="stat-label">Jadwal Aktif</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">♻️</div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="waste-collected">0</span>
+                            <span class="stat-label">Kg Terkumpul</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-header">
+                    <h3>Menu Utama</h3>
+                </div>
+
+                <div class="features-grid">
+                    <div class="feature-card" onclick="navigateTo('jadwal')">
+                        <div class="feature-icon">📅</div>
+                        <h4>Jadwal Penjemputan</h4>
+                        <p>Atur jadwal pengambilan sampah</p>
+                    </div>
+                    <div class="feature-card" onclick="navigateTo('panduan')">
+                        <div class="feature-icon">📚</div>
+                        <h4>Panduan Pemilahan</h4>
+                        <p>Pelajari cara memilah sampah</p>
+                    </div>
+                    <div class="feature-card" onclick="navigateTo('reward')">
+                        <div class="feature-icon">🎁</div>
+                        <h4>Reward System</h4>
+                        <p>Tukar poin dengan hadiah</p>
+                    </div>
+                    <div class="feature-card" onclick="navigateTo('notifikasi')">
+                        <div class="feature-icon">🔔</div>
+                        <h4>Notifikasi</h4>
+                        <p>Lihat pengingat & informasi</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- HALAMAN JADWAL PENJEMPUTAN -->
+            <section id="page-jadwal" class="page">
+                <div class="section-header">
+                    <h3>Jadwal Penjemputan Sampah</h3>
+                    <p>Atur waktu penjemputan sampah Anda</p>
+                </div>
+
+                <!-- Info Jadwal Operasional -->
+                <div class="info-box warning" style="margin-top: 0; margin-bottom: 1.5rem;">
+                    <div class="info-icon">⏰</div>
+                    <div class="info-text">
+                        <strong>Jadwal Operasional Penjemput:</strong><br>
+                        • Hari: <strong>Senin & Kamis</strong> (2x Seminggu)<br>
+                        • Jam: <strong>07:00 - 12:00 WIB</strong>
+                    </div>
+                </div>
+
+                <div class="form-card">
+                    <form id="schedule-form">
+                        <div class="form-group">
+                            <label for="waste-type">Jenis Sampah</label>
+                            <select id="waste-type" required>
+                                <option value="">Pilih Jenis Sampah</option>
+                                <option value="organik">🌿 Organik</option>
+                                <option value="anorganik">♻️ Anorganik</option>
+                                <option value="campuran">🗑️ Campuran</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="pickup-date">Tanggal Penjemputan (Senin/Kamis)</label>
+                            <input type="date" id="pickup-date" required>
+                            <small class="text-hint" style="color: var(--text-secondary); font-size: 0.8em;">*Hanya hari
+                                Senin & Kamis</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="waste-weight">Estimasi Berat (kg)</label>
+                            <input type="number" id="waste-weight" min="0.1" step="0.1" placeholder="Contoh: 5.5"
+                                required>
+                        </div>
+                        <div class="form-group">
+                            <label>Titik Penjemputan (Peta)</label>
+                            <button type="button" id="btn-current-location"
+                                style="width: 100%; margin-bottom: 0.8rem; padding: 0.75rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-size: 0.9em; background-color: #f0fdf4; border: 1px dashed #10b981; color: #059669; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;">
+                                <span>📍</span> Gunakan Lokasi Saat Ini
+                            </button>
+                            <div id="map-container"
+                                style="height: 250px; width: 100%; border-radius: var(--radius-sm); z-index: 0; margin-bottom: 0.5rem; border: 1px solid var(--border-color);">
+                            </div>
+                            <small class="text-hint"
+                                style="display: block; margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.85em;">👇
+                                Geser pin merah ke lokasi penjemputan</small>
+                            <input type="hidden" id="pickup-lat">
+                            <input type="hidden" id="pickup-lng">
+                        </div>
+                        <div class="form-group">
+                            <label for="address">Detail Alamat & Patokan</label>
+                            <textarea id="address" rows="3" placeholder="Contoh: Rumah Pagar Hitam, Samping Warung..."
+                                required></textarea>
+                        </div>
+                        <button type="submit" class="btn-primary">
+                            <span>📅</span> Buat Jadwal
+                        </button>
+                    </form>
+                </div>
+
+                <div class="section-header">
+                    <h3>Jadwal Anda</h3>
+                </div>
+
+                <div id="schedule-list" class="schedule-list">
+                    <div class="empty-state">
+                        <div class="empty-icon">📭</div>
+                        <p>Belum ada jadwal penjemputan</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- HALAMAN PANDUAN PEMILAHAN -->
+            <section id="page-panduan" class="page">
+                <div class="section-header">
+                    <h3>Panduan Pemilahan Sampah</h3>
+                    <p>Pelajari cara memilah sampah dengan benar</p>
+                </div>
+
+                <div class="guide-tabs">
+                    <button class="tab-btn active" data-tab="organik">🌿 Organik</button>
+                    <button class="tab-btn" data-tab="anorganik">♻️ Anorganik</button>
+                </div>
+
+                <div class="guide-content">
+                    <!-- Tab Organik -->
+                    <div id="tab-organik" class="tab-content active">
+                        <div class="guide-card">
+                            <div class="guide-header">
+                                <div class="guide-icon">🌿</div>
+                                <h4>Sampah Organik</h4>
+                            </div>
+                            <p class="guide-description">
+                                Sampah organik adalah sampah yang berasal dari makhluk hidup dan dapat terurai secara
+                                alami oleh mikroorganisme.
+                            </p>
+
+                            <div class="guide-section">
+                                <h5>✅ Contoh Sampah Organik:</h5>
+                                <ul class="guide-list">
+                                    <li>Sisa makanan (nasi, sayuran, buah)</li>
+                                    <li>Kulit buah dan sayuran</li>
+                                    <li>Dedaunan dan ranting pohon</li>
+                                    <li>Ampas kopi dan teh</li>
+                                    <li>Serbuk gergaji dan jerami</li>
+                                    <li>Kotoran hewan herbivora</li>
+                                </ul>
+                            </div>
+
+                            <div class="guide-section">
+                                <h5>♻️ Cara Pengolahan:</h5>
+                                <ul class="guide-list">
+                                    <li>Dibuat kompos untuk pupuk tanaman</li>
+                                    <li>Diolah menjadi biogas</li>
+                                    <li>Dijadikan makanan ternak (khusus sampah tertentu)</li>
+                                    <li>Digunakan untuk media budidaya maggot</li>
+                                </ul>
+                            </div>
+
+                            <div class="info-box success">
+                                <div class="info-icon">💡</div>
+                                <div class="info-text">
+                                    <strong>Tips:</strong> Pisahkan sampah organik basah (sisa makanan) dan kering (daun
+                                    kering) untuk memudahkan pengolahan!
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab Anorganik -->
+                    <div id="tab-anorganik" class="tab-content">
+                        <div class="guide-card">
+                            <div class="guide-header">
+                                <div class="guide-icon">♻️</div>
+                                <h4>Sampah Anorganik</h4>
+                            </div>
+                            <p class="guide-description">
+                                Sampah anorganik adalah sampah yang tidak dapat terurai secara alami dan membutuhkan
+                                waktu sangat lama untuk hancur.
+                            </p>
+
+                            <div class="guide-section">
+                                <h5>✅ Contoh Sampah Anorganik:</h5>
+                                <ul class="guide-list">
+                                    <li>Plastik (botol, kantong, kemasan)</li>
+                                    <li>Kertas dan karton</li>
+                                    <li>Kaleng dan logam</li>
+                                    <li>Kaca dan botol</li>
+                                    <li>Karet dan ban bekas</li>
+                                    <li>Styrofoam dan kain sintetis</li>
+                                </ul>
+                            </div>
+
+                            <div class="guide-section">
+                                <h5>♻️ Cara Pengolahan:</h5>
+                                <ul class="guide-list">
+                                    <li><strong>Reduce:</strong> Kurangi penggunaan barang sekali pakai</li>
+                                    <li><strong>Reuse:</strong> Gunakan kembali barang yang masih layak</li>
+                                    <li><strong>Recycle:</strong> Daur ulang menjadi produk baru</li>
+                                    <li>Setor ke bank sampah atau pemulung</li>
+                                    <li>Dijadikan kerajinan tangan</li>
+                                </ul>
+                            </div>
+
+                            <div class="categories-grid">
+                                <div class="category-item">
+                                    <div class="category-icon">🔵</div>
+                                    <div class="category-info">
+                                        <strong>Plastik</strong>
+                                        <p>Bersihkan sebelum dibuang</p>
+                                    </div>
+                                </div>
+                                <div class="category-item">
+                                    <div class="category-icon">📄</div>
+                                    <div class="category-info">
+                                        <strong>Kertas</strong>
+                                        <p>Lipat & tumpuk rapi</p>
+                                    </div>
+                                </div>
+                                <div class="category-item">
+                                    <div class="category-icon">🥫</div>
+                                    <div class="category-info">
+                                        <strong>Kaleng</strong>
+                                        <p>Cuci & pipihkan</p>
+                                    </div>
+                                </div>
+                                <div class="category-item">
+                                    <div class="category-icon">🍾</div>
+                                    <div class="category-info">
+                                        <strong>Kaca</strong>
+                                        <p>Pisahkan dari plastik</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="info-box warning">
+                                <div class="info-icon">⚠️</div>
+                                <div class="info-text">
+                                    <strong>Perhatian:</strong> Jangan membakar sampah plastik karena menghasilkan gas
+                                    beracun yang berbahaya!
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- HALAMAN REWARD SYSTEM -->
+            <section id="page-reward" class="page">
+                <div class="section-header">
+                    <h3>Reward System</h3>
+                    <p>Tukar poin Anda dengan hadiah menarik</p>
+                </div>
+
+                <div class="points-card">
+                    <div class="points-card-bg"></div>
+                    <div class="points-card-content">
+                        <p class="points-card-label">Total Poin Anda</p>
+                        <h2 class="points-card-value" id="reward-points">0</h2>
+                        <div class="points-card-info">
+                            <span>⭐ Status: <strong id="user-level">Pemula</strong></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section Voucher Saya -->
+                <div class="section-header">
+                    <h3>🎟️ Voucher Saya</h3>
+                    <p>Tunjukkan bukti ini ke petugas</p>
+                </div>
+                <div id="my-vouchers" class="vouchers-list">
+                    <!-- Voucher akan muncul di sini -->
+                </div>
+
+                <div class="section-header" style="margin-top: 2rem;">
+                    <h3>Cara Mendapatkan Poin</h3>
+                </div>
+
+                <div class="earning-methods">
+                    <div class="earning-item">
+                        <div class="earning-icon">📅</div>
+                        <div class="earning-info">
+                            <strong>Selesaikan Penjemputan</strong>
+                            <p>+10 poin setiap penjemputan selesai</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-header">
+                    <h3>Katalog Hadiah</h3>
+                </div>
+
+                <div class="rewards-grid">
+                    <div class="reward-item">
+                        <div class="reward-badge">50 Poin</div>
+                        <div class="reward-icon">🌱</div>
+                        <h4>Bibit Tanaman</h4>
+                        <p>1 paket bibit tanaman hias</p>
+                        <button class="btn-reward" onclick="redeemReward('Bibit Tanaman', 50)">Tukar</button>
+                    </div>
+                    <div class="reward-item">
+                        <div class="reward-badge">100 Poin</div>
+                        <div class="reward-icon">🛍️</div>
+                        <h4>Tas Belanja</h4>
+                        <p>Tas belanja ramah lingkungan</p>
+                        <button class="btn-reward" onclick="redeemReward('Tas Belanja', 100)">Tukar</button>
+                    </div>
+                    <div class="reward-item">
+                        <div class="reward-badge">150 Poin</div>
+                        <div class="reward-icon">💧</div>
+                        <h4>Tumbler Eksklusif</h4>
+                        <p>Tumbler stainless 500ml</p>
+                        <button class="btn-reward" onclick="redeemReward('Tumbler Eksklusif', 150)">Tukar</button>
+                    </div>
+                    <div class="reward-item">
+                        <div class="reward-badge">200 Poin</div>
+                        <div class="reward-icon">📱</div>
+                        <h4>Voucher Pulsa</h4>
+                        <p>Pulsa senilai Rp 50.000</p>
+                        <button class="btn-reward" onclick="redeemReward('Voucher Pulsa', 200)">Tukar</button>
+                    </div>
+                    <div class="reward-item">
+                        <div class="reward-badge">300 Poin</div>
+                        <div class="reward-icon">🎒</div>
+                        <h4>Backpack Eco</h4>
+                        <p>Tas ransel dari bahan daur ulang</p>
+                        <button class="btn-reward" onclick="redeemReward('Backpack Eco', 300)">Tukar</button>
+                    </div>
+                    <div class="reward-item">
+                        <div class="reward-badge">500 Poin</div>
+                        <div class="reward-icon">🏆</div>
+                        <h4>Sertifikat Juara</h4>
+                        <p>Sertifikat + Trophy WasteWise</p>
+                        <button class="btn-reward" onclick="redeemReward('Sertifikat Juara', 500)">Tukar</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- HALAMAN NOTIFIKASI -->
+            <section id="page-notifikasi" class="page">
+                <div class="section-header">
+                    <h3>Notifikasi</h3>
+                    <p>Pengingat dan informasi penting untuk Anda</p>
+                </div>
+
+                <div id="notification-list" class="notification-list">
+                    <div class="empty-state">
+                        <div class="empty-icon">🔕</div>
+                        <p>Belum ada notifikasi</p>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+
+
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
