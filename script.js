@@ -315,8 +315,8 @@ function completeSchedule(id) {
         // Update Status
         schedule.status = 'completed';
 
-        // Tambah Poin
-        const pointsEarned = 10; // Bisa dibuat dinamis berdasarkan berat sampah nanti
+        // Tambah Poin (Dinamis: 10 poin per kg)
+        const pointsEarned = Math.round(schedule.weight * 10);
         addPoints(pointsEarned);
 
         // Update Total Sampah

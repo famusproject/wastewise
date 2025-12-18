@@ -1214,6 +1214,36 @@ body {
     font-size: 0.8rem;
 }
 
+/* Back Button Styles */
+.btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.25rem;
+    background-color: var(--bg-tertiary);
+    color: var(--primary);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-back:hover {
+    background-color: var(--primary);
+    color: white;
+    transform: translateX(-5px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+}
+
+.btn-back span {
+    font-size: 1.25rem;
+}
+
+
 /* Desktop Highlighting */
 @media (min-width: 768px) {
     .desktop-nav {
