@@ -2,11 +2,13 @@
 // STATE MANAGEMENT
 // ================================
 const appState = {
+    currentUser: null, // User object: { name, email, username }
+    users: [], // Array of user objects: { name, email, username, password }
     currentPage: 'beranda',
     points: 0,
     schedules: [],
     notifications: [],
-    vouchers: [], // Store redeemed vouchers
+    vouchers: [],
     totalWasteCollected: 0,
     lastLoginDate: null
 };
@@ -15,70 +17,175 @@ const appState = {
 // INITIALIZATION
 // ================================
 document.addEventListener('DOMContentLoaded', () => {
-    // Load data from localStorage
-    loadData();
+    console.log('WasteWise: Initializing...');
+    try {
+        loadData();
 
-    // Initialize app
-    setTimeout(() => {
-        document.getElementById('splash-screen').style.display = 'none';
-        document.getElementById('app').style.display = 'block';
+        // Failsafe: Hide splash after 5 seconds even if something hangs
+        setTimeout(() => {
+            const splash = document.getElementById('splash-screen');
+            if (splash && splash.style.display !== 'none') {
+                console.warn('WasteWise: Splash screen failsafe triggered.');
+                splash.style.display = 'none';
+                if (!appState.currentUser) {
+                    document.getElementById('auth-screen').style.display = 'flex';
+                } else {
+                    document.getElementById('app').style.display = 'block';
+                }
+            }
+        }, 5000);
 
+        setTimeout(() => {
+            const splash = document.getElementById('splash-screen');
+            if (splash) splash.style.display = 'none';
 
+            if (!appState.currentUser) {
+                document.getElementById('auth-screen').style.display = 'flex';
+            } else {
+                document.getElementById('app').style.display = 'block';
+                updateUI();
 
-        // Update UI
-        updateUI();
+                // Welcome notification for new users
+                if (appState.notifications.length === 0) {
+                    addNotification(
+                        'Selamat Datang kembali! 👋',
+                        `Halo ${appState.currentUser.name}, mari lanjutkan memilah sampah hari ini!`,
+                        'success'
+                    );
+                }
+            }
 
-        // Setup Constraints
-        setupScheduleConstraints();
+            setupScheduleConstraints();
+        }, 2500);
 
-        // Send welcome notification
-        if (appState.notifications.length === 0) {
-            addNotification(
-                'Selamat Datang! 🎉',
-                'Terima kasih telah menggunakan WasteWise. Mari kelola sampah dengan bijak!',
-                'success'
-            );
-        }
-    }, 2500);
-
-    // Setup event listeners
-    setupEventListeners();
+        setupEventListeners();
+        console.log('WasteWise: Initialization Complete.');
+    } catch (e) {
+        console.error('WasteWise: Fatal error during initialization:', e);
+        // Emergency show auth screen so app isn't stuck on splash
+        const splash = document.getElementById('splash-screen');
+        if (splash) splash.style.display = 'none';
+        document.getElementById('auth-screen').style.display = 'flex';
+    }
 });
 
 // ================================
 // DATA PERSISTENCE
 // ================================
 function loadData() {
-    const savedPoints = localStorage.getItem('wastewise_points');
-    const savedSchedules = localStorage.getItem('wastewise_schedules');
-    const savedNotifications = localStorage.getItem('wastewise_notifications');
-    const savedVouchers = localStorage.getItem('wastewise_vouchers');
-    const savedWaste = localStorage.getItem('wastewise_waste');
-    const savedLastLogin = localStorage.getItem('wastewise_last_login');
+    try {
+        // 1. Load global users list
+        const savedUsers = localStorage.getItem('wastewise_users');
+        if (savedUsers) appState.users = JSON.parse(savedUsers);
 
-    if (savedPoints) appState.points = parseInt(savedPoints);
-    if (savedSchedules) appState.schedules = JSON.parse(savedSchedules);
-    if (savedNotifications) appState.notifications = JSON.parse(savedNotifications);
-    if (savedVouchers) appState.vouchers = JSON.parse(savedVouchers);
-    if (savedWaste) appState.totalWasteCollected = parseFloat(savedWaste);
-    if (savedLastLogin) appState.lastLoginDate = savedLastLogin;
+        // 2. Load current session if not already in memory
+        if (!appState.currentUser) {
+            const savedSession = localStorage.getItem('wastewise_session');
+            if (savedSession) {
+                appState.currentUser = JSON.parse(savedSession);
+            }
+        }
+
+        // 3. Load user-specific data if we have a user
+        if (appState.currentUser) {
+            loadUserData(appState.currentUser.username);
+        }
+    } catch (e) {
+        console.error('Error loading data:', e);
+    }
+}
+
+function loadUserData(username) {
+    try {
+        const userData = localStorage.getItem(`wastewise_data_${username}`);
+        if (userData) {
+            const parsed = JSON.parse(userData);
+            appState.points = parsed.points || 0;
+            appState.schedules = parsed.schedules || [];
+            appState.notifications = parsed.notifications || [];
+            appState.vouchers = parsed.vouchers || [];
+            appState.totalWasteCollected = parsed.totalWasteCollected || 0;
+            appState.lastLoginDate = parsed.lastLoginDate || null;
+        } else {
+            // Reset to defaults for new login if no data exists
+            appState.points = 0;
+            appState.schedules = [];
+            appState.notifications = [];
+            appState.vouchers = [];
+            appState.totalWasteCollected = 0;
+        }
+    } catch (e) {
+        console.error('Error loading user data:', e);
+    }
 }
 
 function saveData() {
-    localStorage.setItem('wastewise_points', appState.points);
-    localStorage.setItem('wastewise_schedules', JSON.stringify(appState.schedules));
-    localStorage.setItem('wastewise_notifications', JSON.stringify(appState.notifications));
-    localStorage.setItem('wastewise_vouchers', JSON.stringify(appState.vouchers));
-    localStorage.setItem('wastewise_waste', appState.totalWasteCollected);
-    localStorage.setItem('wastewise_last_login', appState.lastLoginDate);
+    try {
+        console.log('WasteWise: Saving data...', { user: appState.currentUser?.username });
+        // 1. Save global users list
+        localStorage.setItem('wastewise_users', JSON.stringify(appState.users));
 
-    updateUI();
+        // 2. Save current session
+        if (appState.currentUser) {
+            localStorage.setItem('wastewise_session', JSON.stringify(appState.currentUser));
+
+            // 3. Save user-specific data
+            const userData = {
+                points: appState.points,
+                schedules: appState.schedules,
+                notifications: appState.notifications,
+                vouchers: appState.vouchers,
+                totalWasteCollected: appState.totalWasteCollected,
+                lastLoginDate: appState.lastLoginDate
+            };
+            localStorage.setItem(`wastewise_data_${appState.currentUser.username}`, JSON.stringify(userData));
+        } else {
+            localStorage.removeItem('wastewise_session');
+        }
+
+        updateUI();
+    } catch (e) {
+        console.error('Error saving data:', e);
+    }
 }
 
 // ================================
 // EVENT LISTENERS
 // ================================
 function setupEventListeners() {
+    // Auth Forms Toggles
+    const showRegister = document.getElementById('show-register');
+    const showLogin = document.getElementById('show-login');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const authSubtitle = document.getElementById('auth-subtitle');
+
+    if (showRegister) {
+        showRegister.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log('WasteWise: Switching to Register form');
+            switchToRegister();
+        });
+    }
+
+    if (showLogin) {
+        showLogin.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log('WasteWise: Switching to Login form');
+            switchToLogin();
+        });
+    }
+
+    // Auth Form Submits
+    if (loginForm) loginForm.addEventListener('submit', (e) => {
+        console.log('WasteWise: Login form submitted');
+        handleLogin(e);
+    });
+    if (registerForm) registerForm.addEventListener('submit', (e) => {
+        console.log('WasteWise: Register form submitted');
+        handleRegister(e);
+    });
+
     // Hamburger Menu
     const hamburgerBtn = document.querySelector('.mobile-only-btn');
     if (hamburgerBtn) hamburgerBtn.addEventListener('click', openSidebar);
@@ -145,6 +252,160 @@ function setupScheduleConstraints() {
         }
     });
 }
+
+// ================================
+// AUTHENTICATION LOGIC
+// ================================
+function handleRegister(e) {
+    e.preventDefault();
+    const name = document.getElementById('reg-name').value;
+    const email = document.getElementById('reg-email').value;
+    const username = document.getElementById('reg-username').value;
+    const password = document.getElementById('reg-password').value;
+
+    // Check if user already exists
+    if (appState.users.find(u => u.username === username || u.email === email)) {
+        showToast('❌ Username atau Email sudah terdaftar!', 'error');
+        return;
+    }
+
+    const newUser = { name, email, username, password };
+    appState.users.push(newUser);
+
+    // Save data (currentUser remains null)
+    saveData();
+    showToast('✨ Akun berhasil dibuat! Silakan masuk.', 'success');
+
+    // Switch UI back to login
+    console.log('WasteWise: Registration success, switching to login');
+    switchToLogin();
+
+    // Clear form
+    e.target.reset();
+}
+
+function switchToLogin() {
+    console.log('WasteWise: Executing switchToLogin');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const authSubtitle = document.getElementById('auth-subtitle');
+
+    if (registerForm) registerForm.style.display = 'none';
+    if (loginForm) loginForm.style.display = 'block';
+    if (authSubtitle) authSubtitle.textContent = 'Masuk untuk mengelola sampah Anda';
+}
+
+function switchToRegister() {
+    console.log('WasteWise: Executing switchToRegister');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const authSubtitle = document.getElementById('auth-subtitle');
+
+    if (loginForm) loginForm.style.display = 'none';
+    if (registerForm) registerForm.style.display = 'block';
+    if (authSubtitle) authSubtitle.textContent = 'Buat akun baru WasteWise';
+}
+
+function handleLogin(e) {
+    e.preventDefault();
+    const identifier = document.getElementById('login-identifier').value;
+    const password = document.getElementById('login-password').value;
+
+    const user = appState.users.find(u =>
+        (u.username === identifier || u.email === identifier) && u.password === password
+    );
+
+    if (user) {
+        // Set the current user first
+        appState.currentUser = {
+            name: user.name,
+            email: user.email,
+            username: user.username
+        };
+
+        // Explicitly load their specific data
+        loadUserData(user.username);
+
+        // Save session and data
+        saveData();
+
+        showToast(`🚀 Selamat datang kembali, ${user.name}!`, 'success');
+
+        // Update UI before switching screens
+        updateUI();
+
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+
+        e.target.reset();
+    } else {
+        showToast('❌ Email/Username atau password salah!', 'error');
+    }
+}
+
+function handleLogout() {
+    // Show custom modal instead of native confirm
+    const modal = document.getElementById('logout-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        setTimeout(() => modal.classList.add('show'), 10);
+    } else {
+        // Fallback if modal not found
+        if (confirm('Apakah Anda yakin ingin keluar?')) {
+            performLogout();
+        }
+    }
+}
+
+function performLogout() {
+    appState.currentUser = null;
+    localStorage.removeItem('wastewise_session');
+
+    // Reset app state
+    appState.points = 0;
+    appState.schedules = [];
+    appState.notifications = [];
+    appState.vouchers = [];
+    appState.totalWasteCollected = 0;
+
+    // Show splash then reload
+    const splash = document.getElementById('splash-screen');
+    if (splash) {
+        splash.style.display = 'flex';
+        splash.style.opacity = '1';
+        splash.style.visibility = 'visible';
+    }
+
+    setTimeout(() => {
+        location.reload();
+    }, 1000);
+}
+
+function closeLogoutModal() {
+    const modal = document.getElementById('logout-modal');
+    if (modal) {
+        modal.classList.remove('show');
+        setTimeout(() => modal.style.display = 'none', 300);
+    }
+}
+
+function toggleProfileDropdown() {
+    const dropdown = document.getElementById('profile-dropdown');
+    if (dropdown) {
+        dropdown.classList.toggle('show');
+    }
+}
+
+// Global click listener for dropdowns
+window.addEventListener('click', (e) => {
+    // Profile Dropdown click outside
+    if (!e.target.closest('.user-profile-header')) {
+        const dropdown = document.getElementById('profile-dropdown');
+        if (dropdown && dropdown.classList.contains('show')) {
+            dropdown.classList.remove('show');
+        }
+    }
+});
 
 // ================================
 // NAVIGATION
@@ -240,7 +501,7 @@ function handleScheduleSubmit(e) {
     saveData();
 
     e.target.reset();
-    showToast(`Jadwal berhasil dibuat! Menunggu penjemputan 🚚`);
+    showToast(`Jadwal berhasil dibuat! Menunggu penjemputan 🚚`, 'success');
 }
 
 function deleteSchedule(id) {
@@ -250,7 +511,7 @@ function deleteSchedule(id) {
         appState.schedules.splice(index, 1);
         appState.totalWasteCollected -= schedule.weight;
         saveData();
-        showToast('Jadwal dihapus');
+        showToast('Jadwal dihapus', 'info');
     }
 }
 
@@ -332,7 +593,7 @@ function completeSchedule(id) {
         saveData();
         renderSchedules(); // Re-render untuk update UI
         renderHome(); // Update total poin di home
-        showToast(`Penjemputan selesai! +${pointsEarned} poin ditambahkan.`);
+        showToast(`Penjemputan selesai! +${pointsEarned} poin ditambahkan.`, 'success');
     }
 }
 
@@ -360,7 +621,7 @@ function switchTab(tabName) {
 // ================================
 function redeemReward(rewardName, pointsCost) {
     if (appState.points < pointsCost) {
-        showToast('Poin Anda tidak cukup! 😢');
+        showToast('Poin Anda tidak cukup! 😢', 'error');
         return;
     }
 
@@ -386,7 +647,7 @@ function redeemReward(rewardName, pointsCost) {
     );
 
     saveData();
-    showToast(`Berhasil! Cek Tiket Voucher Anda 🎉`);
+    showToast(`Berhasil! Cek Tiket Voucher Anda 🎉`, 'success');
 
     // Scroll to vouchers
     const vouchersEl = document.getElementById('my-vouchers');
@@ -545,26 +806,46 @@ function addPoints(points) {
 // UI UPDATE CENTRAL
 // ================================
 function updateUI() {
-    const pointsEl = document.getElementById('total-points');
-    if (pointsEl) pointsEl.textContent = appState.points;
+    try {
+        if (appState.currentUser) {
+            const sideName = document.getElementById('side-user-name');
+            const sideEmail = document.getElementById('side-user-email');
+            if (sideName) sideName.textContent = appState.currentUser.name;
+            if (sideEmail) sideEmail.textContent = appState.currentUser.email;
 
-    const rewardPointsEl = document.getElementById('reward-points');
-    if (rewardPointsEl) rewardPointsEl.textContent = appState.points;
+            // Header Profile Updates
+            const headerName = document.getElementById('header-user-name');
+            const dropName = document.getElementById('dropdown-user-name');
+            const dropEmail = document.getElementById('dropdown-user-email');
 
-    const levelEl = document.getElementById('user-level');
-    if (levelEl) levelEl.textContent = getUserLevel();
+            if (headerName) headerName.textContent = appState.currentUser.name.split(' ')[0];
+            if (dropName) dropName.textContent = appState.currentUser.name;
+            if (dropEmail) dropEmail.textContent = appState.currentUser.email;
+        }
 
-    const schedCountEl = document.getElementById('schedule-count');
-    if (schedCountEl) schedCountEl.textContent = appState.schedules.length;
+        const pointsEl = document.getElementById('total-points');
+        if (pointsEl) pointsEl.textContent = appState.points;
 
-    const wasteEl = document.getElementById('waste-collected');
-    if (wasteEl) wasteEl.textContent = appState.totalWasteCollected.toFixed(1);
+        const rewardPointsEl = document.getElementById('reward-points');
+        if (rewardPointsEl) rewardPointsEl.textContent = appState.points;
 
-    renderSchedules();
-    renderNotifications();
-    renderVouchers();
-    renderRewards();
-    updateNotificationBadge();
+        const levelEl = document.getElementById('user-level');
+        if (levelEl) levelEl.textContent = getUserLevel();
+
+        const schedCountEl = document.getElementById('schedule-count');
+        if (schedCountEl) schedCountEl.textContent = appState.schedules.length;
+
+        const wasteEl = document.getElementById('waste-collected');
+        if (wasteEl) wasteEl.textContent = Number(appState.totalWasteCollected || 0).toFixed(1);
+
+        renderSchedules();
+        renderNotifications();
+        renderVouchers();
+        renderRewards();
+        updateNotificationBadge();
+    } catch (e) {
+        console.error('Error updating UI:', e);
+    }
 }
 
 // ================================
@@ -595,12 +876,18 @@ function getRelativeTime(timestamp) {
     return formatDate(timestamp.split('T')[0]);
 }
 
-function showToast(message) {
+function showToast(message, type = 'info') {
     const toast = document.getElementById('toast');
     if (toast) {
         toast.textContent = message;
-        toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 3000);
+        // Remove old types
+        toast.classList.remove('success', 'error', 'info');
+        // Add new classes
+        toast.classList.add('show', type);
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
     }
 }
 
@@ -616,8 +903,9 @@ window.loadDemoData = function () {
         address: 'Jl. Demo',
         createdAt: new Date().toISOString()
     }];
+    appState.totalWasteCollected = 2.5;
     saveData();
-    showToast('Demo Data Loaded');
+    showToast('Demo Data Loaded', 'info');
 };
 
 // ================================
@@ -639,8 +927,20 @@ function initMap() {
     const defaultLat = -6.175392;
     const defaultLng = 106.827153;
 
+    // Check if Leaflet is loaded
+    if (typeof L === 'undefined') {
+        console.error('Leaflet is not loaded!');
+        mapContainer.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--error);">Gagal memuat peta (Offline atau Script terblokir)</div>';
+        return;
+    }
+
     // Init Map
-    mapSource = L.map('map-container').setView([defaultLat, defaultLng], 13);
+    try {
+        mapSource = L.map('map-container').setView([defaultLat, defaultLng], 13);
+    } catch (e) {
+        console.error('Error initializing L.map:', e);
+        return;
+    }
 
     // Tile Layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
